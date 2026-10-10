@@ -46,10 +46,10 @@ jobs:
         run: |
           set -e
           # state as of the stock build (kernel tip 2026-09-12, ROM 2026-09-16)
-          git clone -q --shallow-since=2026-08-01 https://github.com/ReSukiSU/ReSukiSU src/KernelSU
+          git clone -q --shallow-since=2026-06-15 https://github.com/ReSukiSU/ReSukiSU src/KernelSU
           git -C src/KernelSU checkout -q "$(git -C src/KernelSU rev-list -1 --before=${{ inputs.ksu_date }} HEAD)"
           git -C src/KernelSU log -1 --format='ReSukiSU %h %ad'
-          git clone -q --shallow-since=2026-08-01 -b gki-android14-5.15 https://gitlab.com/simonpunk/susfs4ksu.git "$GITHUB_WORKSPACE/susfs4ksu"
+          git clone -q --shallow-since=2026-06-15 -b gki-android14-5.15 https://gitlab.com/simonpunk/susfs4ksu.git "$GITHUB_WORKSPACE/susfs4ksu"
           git -C "$GITHUB_WORKSPACE/susfs4ksu" checkout -q "$(git -C "$GITHUB_WORKSPACE/susfs4ksu" rev-list -1 --before=${{ inputs.ksu_date }} HEAD)"
           git -C "$GITHUB_WORKSPACE/susfs4ksu" log -1 --format='susfs4ksu %h %ad'
           git clone -q --depth=1 -b lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550-devicetrees "$GITHUB_WORKSPACE/sm8550-devicetrees"
