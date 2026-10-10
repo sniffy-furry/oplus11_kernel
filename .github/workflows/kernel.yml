@@ -1,0 +1,75 @@
+name: build-kernel
+on:
+  workflow_dispatch:
+    inputs:
+      src_ref:
+        description: "osm1019/kernel_oneplus_sm8550 ref (branch or commit)"
+        default: "17e35842b28"
+      with_distro:
+        description: "apply config/distro.fragment (DEVTMPFS, PID_NS, ...)"
+        type: boolean
+        default: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk + deps
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android || true
+          sudo apt-get update -q
+          sudo apt-get install -y -q bc bison flex libssl-dev libelf-dev lz4 cpio python3 xz-utils zstd ccache
+      - name: Fetch kernel source
+        run: |
+          git init -q src && cd src
+          git remote add o https://github.com/osm1019/kernel_oneplus_sm8550
+          git fetch -q --depth=1 o "${{ inputs.src_ref }}"
+          git checkout -q FETCH_HEAD
+          git log -1 --format='%H %ad %s'
+      - name: Get clang (Android r563880c, fallback apt.llvm.org 21)
+        run: |
+          mkdir -p $HOME/clang && cd $HOME/clang
+          if curl -fL --retry 3 -o c.tgz "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r563880c.tar.gz" && tar xzf c.tgz 2>/dev/null && [ -x bin/clang ]; then
+            echo "$HOME/clang/bin" >> $GITHUB_PATH
+          else
+            echo "fallback to apt.llvm.org"
+            wget -q https://apt.llvm.org/llvm.sh && chmod +x llvm.sh && sudo ./llvm.sh 21 all
+            sudo ln -sf /usr/bin/clang-21 /usr/local/bin/clang
+            sudo ln -sf /usr/bin/ld.lld-21 /usr/local/bin/ld.lld
+            for t in llvm-ar llvm-nm llvm-objcopy llvm-objdump llvm-strip llvm-readelf; do sudo ln -sf /usr/bin/$t-21 /usr/local/bin/$t; done
+          fi
+      - name: Configure
+        working-directory: src
+        run: |
+          export ARCH=arm64 LLVM=1 LLVM_IAS=1
+          make O=out gki_defconfig
+          F="arch/arm64/configs/vendor/kalama_GKI.config"
+          [ -f "$F" ] && scripts/kconfig/merge_config.sh -m -O out out/.config "$F"
+          if [ "${{ inputs.with_distro }}" = "true" ]; then
+            scripts/kconfig/merge_config.sh -m -O out out/.config "$GITHUB_WORKSPACE/config/distro.fragment"
+          fi
+          # keep the version string identical to the stock kernel so vendor modules (vermagic) still load
+          scripts/config --file out/.config --disable LOCALVERSION_AUTO --set-str LOCALVERSION "-AmberKernelV1--g2c83db1b0208"
+          make O=out olddefconfig
+          grep -E 'LOCALVERSION|DEVTMPFS=|PID_NS|USER_NS|SYSVIPC|FHANDLE|CGROUP_PIDS|FRAMEBUFFER_CONSOLE' out/.config
+      - name: Build Image
+        working-directory: src
+        run: |
+          export ARCH=arm64 LLVM=1 LLVM_IAS=1 KBUILD_BUILD_USER=build KBUILD_BUILD_HOST=gha
+          make O=out -j$(nproc) Image 2>&1 | tail -n 40
+          make O=out kernelrelease
+      - name: Compare with stock
+        working-directory: src
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/dist
+          cp out/arch/arm64/boot/Image out/.config $GITHUB_WORKSPACE/dist/
+          make O=out -s kernelrelease > $GITHUB_WORKSPACE/dist/kernelrelease.txt
+          cat $GITHUB_WORKSPACE/dist/kernelrelease.txt
+          # module_layout CRC from the built vmlinux (stock = 0xedfc7a5c)
+          llvm-nm out/vmlinux 2>/dev/null | grep -E '__crc_module_layout' | tee $GITHUB_WORKSPACE/dist/module_layout_crc.txt || true
+          ls -la $GITHUB_WORKSPACE/dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kernel-oplus11
+          path: dist/
