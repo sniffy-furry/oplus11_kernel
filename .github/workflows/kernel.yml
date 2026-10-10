@@ -5,6 +5,10 @@ on:
       src_ref:
         description: "osm1019/kernel_oneplus_sm8550 ref (branch or FULL 40-char sha)"
         default: "17e35842b287bfba4ded0e74bbf24c742d15de24"
+      with_ksu:
+        description: "keep KernelSU/SUSFS (tree hooks currently do not compile against ReSukiSU HEAD)"
+        type: boolean
+        default: false
       with_distro:
         description: "apply config/distro.fragment (DEVTMPFS, PID_NS, ...)"
         type: boolean
@@ -69,10 +73,13 @@ jobs:
           if [ "${{ inputs.with_distro }}" = "true" ]; then
             scripts/kconfig/merge_config.sh -m -O out out/.config "$GITHUB_WORKSPACE/config/distro.fragment"
           fi
+          if [ "${{ inputs.with_ksu }}" != "true" ]; then
+            scripts/kconfig/merge_config.sh -m -O out out/.config "$GITHUB_WORKSPACE/config/no_ksu.fragment"
+          fi
           # keep the version string identical to the stock kernel so vendor modules (vermagic) still load
           scripts/config --file out/.config --disable LOCALVERSION_AUTO --set-str LOCALVERSION "-AmberKernelV1--g2c83db1b0208"
           make O=out olddefconfig
-          grep -E 'LOCALVERSION|DEVTMPFS=|PID_NS|USER_NS|SYSVIPC|FHANDLE|CGROUP_PIDS|FRAMEBUFFER_CONSOLE' out/.config
+          grep -E 'CONFIG_KSU=|LOCALVERSION|DEVTMPFS=|PID_NS|USER_NS|SYSVIPC|FHANDLE|CGROUP_PIDS|FRAMEBUFFER_CONSOLE' out/.config
       - name: Build Image
         working-directory: src
         run: |
