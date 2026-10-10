@@ -3,8 +3,8 @@ on:
   workflow_dispatch:
     inputs:
       src_ref:
-        description: "osm1019/kernel_oneplus_sm8550 ref (branch or commit)"
-        default: "17e35842b28"
+        description: "osm1019/kernel_oneplus_sm8550 ref (branch or FULL 40-char sha)"
+        default: "17e35842b287bfba4ded0e74bbf24c742d15de24"
       with_distro:
         description: "apply config/distro.fragment (DEVTMPFS, PID_NS, ...)"
         type: boolean
