@@ -68,8 +68,10 @@ jobs:
         run: |
           export ARCH=arm64 LLVM=1 LLVM_IAS=1
           make O=out gki_defconfig
-          F="arch/arm64/configs/vendor/kalama_GKI.config"
-          [ -f "$F" ] && scripts/kconfig/merge_config.sh -m -O out out/.config "$F"
+          for F in arch/arm64/configs/vendor/kalama_GKI.config arch/arm64/configs/vendor/oplus/kalama_GKI.config \
+                   "$GITHUB_WORKSPACE/config/stock_overrides.fragment" "$GITHUB_WORKSPACE/config/no_btf.fragment"; do
+            [ -f "$F" ] && scripts/kconfig/merge_config.sh -m -O out out/.config "$F"
+          done
           if [ "${{ inputs.with_distro }}" = "true" ]; then
             scripts/kconfig/merge_config.sh -m -O out out/.config "$GITHUB_WORKSPACE/config/distro.fragment"
           fi

@@ -1,0 +1,3 @@
+# pahole on the runner cannot handle clang-21 DWARF; BTF is not needed to boot
+# CONFIG_DEBUG_INFO_BTF is not set
+# CONFIG_DEBUG_INFO_BTF_MODULES is not set

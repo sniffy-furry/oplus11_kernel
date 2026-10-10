@@ -1,0 +1,8 @@
+# options where vendor/kalama_GKI.config disagrees with the stock /proc/config.gz: stock wins
+# CONFIG_ARM_QCOM_CPUFREQ_HW_DEBUG is not set
+# CONFIG_CORESIGHT is not set
+# CONFIG_KUNIT is not set
+# CONFIG_QCOM_ESOC_DEBUG is not set
+# CONFIG_QTI_BATTERY_GLINK_DEBUG is not set
+# CONFIG_QTI_PMIC_GLINK_DEBUG is not set
+# CONFIG_SPMI_MSM_PMIC_ARB_DEBUG is not set
