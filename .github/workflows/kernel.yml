@@ -16,10 +16,9 @@ on:
         description: "keep KernelSU/SUSFS (needed so struct layouts / module_layout CRC match the stock kernel)"
         type: boolean
         default: true
-      with_distro:
-        description: "apply config/distro.fragment (DEVTMPFS, PID_NS, ...). Leave off for the first stock-parity check"
-        type: boolean
-        default: false
+      distro_fragment:
+        description: "config fragment to merge on top of the stock config (empty = pure stock). e.g. config/distro3.fragment"
+        default: ""
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -90,8 +89,8 @@ jobs:
           export ARCH=arm64 LLVM=1 LLVM_IAS=1
           # base = the exact stock .config from the phone (/proc/config.gz); never rebuild it from defconfigs
           mkdir -p out && zcat "$GITHUB_WORKSPACE/config/stock.config.gz" > out/.config
-          if [ "${{ inputs.with_distro }}" = "true" ]; then
-            scripts/kconfig/merge_config.sh -m -O out out/.config "$GITHUB_WORKSPACE/config/distro.fragment"
+          if [ -n "${{ inputs.distro_fragment }}" ]; then
+            scripts/kconfig/merge_config.sh -m -O out out/.config "$GITHUB_WORKSPACE/${{ inputs.distro_fragment }}"
           fi
           if [ "${{ inputs.with_ksu }}" != "true" ]; then
             scripts/kconfig/merge_config.sh -m -O out out/.config "$GITHUB_WORKSPACE/config/no_ksu.fragment"
@@ -129,5 +128,5 @@ jobs:
           ls -la $GITHUB_WORKSPACE/dist
       - uses: actions/upload-artifact@v4
         with:
-          name: kernel-oplus11
+          name: kernel-oplus11-${{ github.run_number }}
           path: dist/
