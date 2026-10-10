@@ -75,7 +75,15 @@ jobs:
         working-directory: src
         run: |
           export ARCH=arm64 LLVM=1 LLVM_IAS=1 KBUILD_BUILD_USER=build KBUILD_BUILD_HOST=gha
-          make O=out -j$(nproc) Image 2>&1 | tail -n 40
+          set -o pipefail
+          mkdir -p $GITHUB_WORKSPACE/dist
+          if ! make O=out -j$(nproc) Image > $GITHUB_WORKSPACE/dist/build.log 2>&1; then
+            echo "===== BUILD FAILED: first errors ====="
+            grep -nE 'error:|Error [0-9]|\*\*\*|undefined|not found|No such' $GITHUB_WORKSPACE/dist/build.log | head -25
+            echo "===== last lines ====="
+            tail -15 $GITHUB_WORKSPACE/dist/build.log
+            exit 1
+          fi
           make O=out kernelrelease
       - name: Compare with stock
         working-directory: src
