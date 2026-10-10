@@ -45,6 +45,8 @@ jobs:
           cd src
           echo "broken symlinks:"; find . -path ./KernelSU -prune -o -type l ! -exec test -e {} \; -print | tee /tmp/broken.txt
           test ! -s /tmp/broken.txt
+      - name: Remove SUSFS hunks applied twice upstream
+        run: python3 tools/dedupe_susfs.py src
       - name: Get clang (Android r563880c, fallback apt.llvm.org 21)
         run: |
           mkdir -p $HOME/clang && cd $HOME/clang
