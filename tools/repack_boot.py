@@ -13,6 +13,8 @@ ksz, rsz = struct.unpack_from('<II', d, 8)
 hver = struct.unpack_from('<I', d, 40)[0]
 assert hver == 4, f'header v{hver}: only v4 supported'
 sig = struct.unpack_from('<I', d, 1580)[0]
+if len(d) <= PAGE:   # header-only input is enough when there is no ramdisk/signature
+    assert rsz == 0 and sig == 0, 'header-only input needs a boot image without ramdisk/signature'
 rest_off = PAGE + up(ksz)                      # ramdisk (+ boot signature) follow the kernel
 rest = d[rest_off: rest_off + up(rsz) + up(sig)]
 hdr = bytearray(d[:PAGE]); struct.pack_into('<I', hdr, 8, len(k))
