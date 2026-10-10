@@ -17,8 +17,8 @@ on:
         type: boolean
         default: true
       distro_fragment:
-        description: "config fragment to merge on top of the stock config (empty = pure stock). e.g. config/distro3.fragment"
-        default: ""
+        description: "config fragment to merge on top of the stock config (empty = pure stock; android.fragment = stub kernel with kexec, stock-ABI). e.g. config/distro3.fragment"
+        default: "config/android.fragment"
 jobs:
   build:
     runs-on: ubuntu-latest
