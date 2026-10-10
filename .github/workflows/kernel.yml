@@ -6,9 +6,9 @@ on:
         description: "osm1019/kernel_oneplus_sm8550 ref (branch or FULL 40-char sha)"
         default: "17e35842b287bfba4ded0e74bbf24c742d15de24"
       with_ksu:
-        description: "keep KernelSU/SUSFS (tree hooks currently do not compile against ReSukiSU HEAD)"
+        description: "keep KernelSU/SUSFS (needed so struct layouts / module_layout CRC match the stock kernel)"
         type: boolean
-        default: false
+        default: true
       with_distro:
         description: "apply config/distro.fragment (DEVTMPFS, PID_NS, ...)"
         type: boolean
@@ -50,7 +50,9 @@ jobs:
           echo "broken symlinks:"; find . -path ./KernelSU -prune -o -type l ! -exec test -e {} \; -print | tee /tmp/broken.txt
           test ! -s /tmp/broken.txt
       - name: Remove SUSFS hunks applied twice upstream
-        run: python3 tools/dedupe_susfs.py src
+        run: |
+          python3 tools/dedupe_susfs.py src
+          python3 tools/fix_ksu_hooks.py src
       - name: Get clang (Android r563880c, fallback apt.llvm.org 21)
         run: |
           mkdir -p $HOME/clang && cd $HOME/clang
