@@ -27,6 +27,10 @@ jobs:
           git fetch -q --depth=1 o "${{ inputs.src_ref }}"
           git checkout -q FETCH_HEAD
           git log -1 --format='%H %ad %s'
+      - name: Fetch OnePlus modules repo (kernel symlinks into ../sm8550-modules)
+        run: |
+          git clone -q --depth=1 -b lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550-modules "$GITHUB_WORKSPACE/sm8550-modules"
+          test -f src/kernel/oplus_cpu/thermal/Kconfig && echo "thermal symlink OK"
       - name: Get clang (Android r563880c, fallback apt.llvm.org 21)
         run: |
           mkdir -p $HOME/clang && cd $HOME/clang
