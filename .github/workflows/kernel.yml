@@ -4,15 +4,22 @@ on:
     inputs:
       src_ref:
         description: "osm1019/kernel_oneplus_sm8550 ref (branch or FULL 40-char sha)"
-        default: "17e35842b287bfba4ded0e74bbf24c742d15de24"
+        default: "a8f2ee936fd69e3301eb8e26c08a67c6fbbfd63d"
+      ksu_date:
+        description: "ReSukiSU/susfs4ksu snapshot = last commit before this date"
+        default: "2026-08-02"
+      fix_tree:
+        description: "run dedupe/fix scripts (only for the Sep-12 tip, whose SUSFS integration is broken)"
+        type: boolean
+        default: false
       with_ksu:
         description: "keep KernelSU/SUSFS (needed so struct layouts / module_layout CRC match the stock kernel)"
         type: boolean
         default: true
       with_distro:
-        description: "apply config/distro.fragment (DEVTMPFS, PID_NS, ...)"
+        description: "apply config/distro.fragment (DEVTMPFS, PID_NS, ...). Leave off for the first stock-parity check"
         type: boolean
-        default: true
+        default: false
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -40,16 +47,17 @@ jobs:
           set -e
           # state as of the stock build (kernel tip 2026-09-12, ROM 2026-09-16)
           git clone -q --shallow-since=2026-08-01 https://github.com/ReSukiSU/ReSukiSU src/KernelSU
-          git -C src/KernelSU checkout -q "$(git -C src/KernelSU rev-list -1 --before=2026-09-16 HEAD)"
+          git -C src/KernelSU checkout -q "$(git -C src/KernelSU rev-list -1 --before=${{ inputs.ksu_date }} HEAD)"
           git -C src/KernelSU log -1 --format='ReSukiSU %h %ad'
           git clone -q --shallow-since=2026-08-01 -b gki-android14-5.15 https://gitlab.com/simonpunk/susfs4ksu.git "$GITHUB_WORKSPACE/susfs4ksu"
-          git -C "$GITHUB_WORKSPACE/susfs4ksu" checkout -q "$(git -C "$GITHUB_WORKSPACE/susfs4ksu" rev-list -1 --before=2026-09-16 HEAD)"
+          git -C "$GITHUB_WORKSPACE/susfs4ksu" checkout -q "$(git -C "$GITHUB_WORKSPACE/susfs4ksu" rev-list -1 --before=${{ inputs.ksu_date }} HEAD)"
           git -C "$GITHUB_WORKSPACE/susfs4ksu" log -1 --format='susfs4ksu %h %ad'
           git clone -q --depth=1 -b lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550-devicetrees "$GITHUB_WORKSPACE/sm8550-devicetrees"
           cd src
           echo "broken symlinks:"; find . -path ./KernelSU -prune -o -type l ! -exec test -e {} \; -print | tee /tmp/broken.txt
           test ! -s /tmp/broken.txt
       - name: Remove SUSFS hunks applied twice upstream
+        if: ${{ inputs.fix_tree }}
         run: |
           python3 tools/dedupe_susfs.py src
           python3 tools/fix_ksu_hooks.py src
@@ -80,11 +88,8 @@ jobs:
         working-directory: src
         run: |
           export ARCH=arm64 LLVM=1 LLVM_IAS=1
-          make O=out gki_defconfig
-          for F in arch/arm64/configs/vendor/kalama_GKI.config arch/arm64/configs/vendor/oplus/kalama_GKI.config \
-                   "$GITHUB_WORKSPACE/config/stock_overrides.fragment"; do
-            [ -f "$F" ] && scripts/kconfig/merge_config.sh -m -O out out/.config "$F"
-          done
+          # base = the exact stock .config from the phone (/proc/config.gz); never rebuild it from defconfigs
+          mkdir -p out && zcat "$GITHUB_WORKSPACE/config/stock.config.gz" > out/.config
           if [ "${{ inputs.with_distro }}" = "true" ]; then
             scripts/kconfig/merge_config.sh -m -O out out/.config "$GITHUB_WORKSPACE/config/distro.fragment"
           fi
@@ -93,6 +98,7 @@ jobs:
           fi
           # keep the version string identical to the stock kernel so vendor modules (vermagic) still load
           scripts/config --file out/.config --disable LOCALVERSION_AUTO --set-str LOCALVERSION "-AmberKernelV1--g2c83db1b0208"
+          # distro / no-ksu fragments are merged BEFORE olddefconfig
           make O=out olddefconfig
           grep -E 'CONFIG_KSU=|LOCALVERSION|DEVTMPFS=|PID_NS|USER_NS|SYSVIPC|FHANDLE|CGROUP_PIDS|FRAMEBUFFER_CONSOLE' out/.config
       - name: Config diff vs stock
