@@ -63,13 +63,24 @@ jobs:
             sudo ln -sf /usr/bin/ld.lld-21 /usr/local/bin/ld.lld
             for t in llvm-ar llvm-nm llvm-objcopy llvm-objdump llvm-strip llvm-readelf; do sudo ln -sf /usr/bin/$t-21 /usr/local/bin/$t; done
           fi
+      - name: Build recent pahole (BTF needs it; keeps struct module layout = stock)
+        run: |
+          sudo apt-get install -y -q cmake libdw-dev libelf-dev zlib1g-dev
+          git clone -q --depth=1 --recurse-submodules --shallow-submodules -b v1.30 https://github.com/acmel/dwarves "$HOME/dwarves"
+          cmake -S "$HOME/dwarves" -B "$HOME/dwarves/build" -D__LIB=lib -DCMAKE_BUILD_TYPE=Release
+          make -C "$HOME/dwarves/build" -j"$(nproc)"
+          sudo make -C "$HOME/dwarves/build" install
+          sudo ldconfig
+          pahole --version
+      - name: No "+" suffix in kernel version
+        run: printf '' > src/.scmversion
       - name: Configure
         working-directory: src
         run: |
           export ARCH=arm64 LLVM=1 LLVM_IAS=1
           make O=out gki_defconfig
           for F in arch/arm64/configs/vendor/kalama_GKI.config arch/arm64/configs/vendor/oplus/kalama_GKI.config \
-                   "$GITHUB_WORKSPACE/config/stock_overrides.fragment" "$GITHUB_WORKSPACE/config/no_btf.fragment"; do
+                   "$GITHUB_WORKSPACE/config/stock_overrides.fragment"; do
             [ -f "$F" ] && scripts/kconfig/merge_config.sh -m -O out out/.config "$F"
           done
           if [ "${{ inputs.with_distro }}" = "true" ]; then
@@ -82,6 +93,8 @@ jobs:
           scripts/config --file out/.config --disable LOCALVERSION_AUTO --set-str LOCALVERSION "-AmberKernelV1--g2c83db1b0208"
           make O=out olddefconfig
           grep -E 'CONFIG_KSU=|LOCALVERSION|DEVTMPFS=|PID_NS|USER_NS|SYSVIPC|FHANDLE|CGROUP_PIDS|FRAMEBUFFER_CONSOLE' out/.config
+      - name: Config diff vs stock
+        run: python3 tools/cfgdiff.py src/out/.config config/stock.config.gz
       - name: Build Image
         working-directory: src
         run: |
