@@ -23,7 +23,7 @@ jobs:
         run: |
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android || true
           sudo apt-get update -q
-          sudo apt-get install -y -q bc bison flex libssl-dev libelf-dev lz4 cpio python3 xz-utils zstd ccache
+          sudo apt-get install -y -q bc bison flex libssl-dev libelf-dev dwarves lz4 cpio python3 xz-utils zstd ccache
       - name: Fetch kernel source
         run: |
           git init -q src && cd src
