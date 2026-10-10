@@ -19,6 +19,10 @@ on:
       distro_fragment:
         description: "config fragment to merge on top of the stock config (empty = pure stock; android.fragment = stub kernel with kexec, stock-ABI). e.g. config/distro3.fragment"
         default: "config/android.fragment"
+      stage1:
+        description: "embed stage-1 initramfs (busybox+kexec+linux_hook) and rdinit=/linux_hook"
+        type: boolean
+        default: false
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -83,6 +87,9 @@ jobs:
           pahole --version
       - name: No "+" suffix in kernel version
         run: printf '' > src/.scmversion
+      - name: Build stage-1 payload (static busybox + kexec)
+        if: ${{ inputs.stage1 }}
+        run: tools/build_stage1.sh $HOME/stage1
       - name: Configure
         working-directory: src
         run: |
@@ -97,6 +104,10 @@ jobs:
           fi
           # keep the version string identical to the stock kernel so vendor modules (vermagic) still load
           scripts/config --file out/.config --disable LOCALVERSION_AUTO --set-str LOCALVERSION "-AmberKernelV1--g2c83db1b0208"
+          if [ "${{ inputs.stage1 }}" = "true" ]; then
+            scripts/config --file out/.config --set-str INITRAMFS_SOURCE "$HOME/stage1/initramfs.list" \
+              --set-str CMDLINE "stack_depot_disable=on kasan.stacktrace=off kvm-arm.mode=protected cgroup_disable=pressure rdinit=/linux_hook"
+          fi
           # distro / no-ksu fragments are merged BEFORE olddefconfig
           make O=out olddefconfig
           grep -E 'CONFIG_KSU=|LOCALVERSION|DEVTMPFS=|PID_NS|USER_NS|SYSVIPC|FHANDLE|CGROUP_PIDS|FRAMEBUFFER_CONSOLE' out/.config
@@ -116,6 +127,13 @@ jobs:
             exit 1
           fi
           make O=out kernelrelease
+      - name: Verify stage-1 payload is inside the image
+        if: ${{ inputs.stage1 }}
+        working-directory: src
+        run: |
+          cpio -t < out/usr/initramfs_data.cpio 2>/dev/null | tee /tmp/l.txt
+          grep -qx linux_hook /tmp/l.txt && grep -qx linux/busybox /tmp/l.txt && grep -qx linux/kexec /tmp/l.txt
+          grep -c 'rdinit=/linux_hook' out/.config
       - name: Compare with stock
         working-directory: src
         run: |

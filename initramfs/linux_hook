@@ -1,0 +1,4 @@
+#!/linux/busybox sh
+# Stage-1 hook (M0): only hands over to Android's init. Later milestones add
+# Vol- detection + kexec; ANY failure must end in: exec /init
+exec /init "$@"
