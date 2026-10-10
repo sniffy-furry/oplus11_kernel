@@ -8,7 +8,7 @@ export CROSS_COMPILE=aarch64-linux-gnu-
 curl -fsSL https://busybox.net/downloads/busybox-1.36.1.tar.bz2 | tar xj
 ( cd busybox-1.36.1 && make defconfig >/dev/null \
   && sed -i 's/^# CONFIG_STATIC is not set/CONFIG_STATIC=y/;s/^CONFIG_TC=y/# CONFIG_TC is not set/' .config \
-  && make ARCH=arm64 olddefconfig >/dev/null && grep -E '^CONFIG_STATIC=y' .config \
+  && grep -E '^CONFIG_STATIC=y' .config \
   && make ARCH=arm64 -j"$(nproc)" busybox >/dev/null )
 curl -fsSL https://www.kernel.org/pub/linux/utils/kernel/kexec/kexec-tools-2.0.29.tar.xz | tar xJ
 ( cd kexec-tools-2.0.29 && ./configure --host=aarch64-linux-gnu LDFLAGS=-static >/dev/null && make -j"$(nproc)" >/dev/null )
