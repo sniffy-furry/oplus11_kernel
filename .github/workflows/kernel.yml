@@ -23,6 +23,10 @@ on:
         description: "embed stage-1 initramfs (busybox+kexec+linux_hook) and rdinit=/linux_hook"
         type: boolean
         default: false
+      stage1_rdinit:
+        description: "with stage1: also add rdinit=/linux_hook to the cmdline (false = payload embedded but unused, for bisecting)"
+        type: boolean
+        default: true
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -105,8 +109,10 @@ jobs:
           # keep the version string identical to the stock kernel so vendor modules (vermagic) still load
           scripts/config --file out/.config --disable LOCALVERSION_AUTO --set-str LOCALVERSION "-AmberKernelV1--g2c83db1b0208"
           if [ "${{ inputs.stage1 }}" = "true" ]; then
-            scripts/config --file out/.config --set-str INITRAMFS_SOURCE "$HOME/stage1/initramfs.list" \
-              --set-str CMDLINE "stack_depot_disable=on kasan.stacktrace=off kvm-arm.mode=protected cgroup_disable=pressure rdinit=/linux_hook"
+            scripts/config --file out/.config --set-str INITRAMFS_SOURCE "$HOME/stage1/initramfs.list"
+            if [ "${{ inputs.stage1_rdinit }}" = "true" ]; then
+              scripts/config --file out/.config --set-str CMDLINE "stack_depot_disable=on kasan.stacktrace=off kvm-arm.mode=protected cgroup_disable=pressure rdinit=/linux_hook"
+            fi
           fi
           # distro / no-ksu fragments are merged BEFORE olddefconfig
           make O=out olddefconfig
@@ -133,7 +139,7 @@ jobs:
         run: |
           cpio -t < out/usr/initramfs_data.cpio 2>/dev/null | tee /tmp/l.txt
           grep -qx linux_hook /tmp/l.txt && grep -qx linux/busybox /tmp/l.txt && grep -qx linux/kexec /tmp/l.txt
-          grep -c 'rdinit=/linux_hook' out/.config
+          grep -c 'rdinit=/linux_hook' out/.config || true
       - name: Compare with stock
         working-directory: src
         run: |
