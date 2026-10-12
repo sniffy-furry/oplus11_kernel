@@ -1,4 +1,50 @@
 #!/linux/busybox sh
-# Stage-1 hook (M0): only hands over to Android's init. Later milestones add
-# Vol- detection + kexec; ANY failure must end in: exec /init
+# Stage-1 hook v1. Loads the pinctrl chain, checks Vol- (gpio-keys, KEY_VOLUMEDOWN=114).
+# v1 only LOGS to /dev/kmsg (see: dmesg | grep linux_hook) then always hands over to Android.
+# ANY failure must end in: exec /init
+B=/linux/busybox
+$B mount -t proc proc /proc 2>/dev/null
+$B mount -t sysfs sysfs /sys 2>/dev/null
+$B mount -t devtmpfs devtmpfs /dev 2>/dev/null
+log() { echo "<6>linux_hook: $*" > /dev/kmsg 2>/dev/null; }
+log "start"
+DEP=""
+for f in /lib/modules/modules.dep /lib/modules/*/modules.dep; do [ -f "$f" ] && DEP=$f && break; done
+log "dep=$DEP"
+LOADED=" "
+loadp() { # $1 = path from modules.dep
+  case "$LOADED" in *" $1 "*) return;; esac
+  LOADED="$LOADED$1 "
+  p=$1; case "$p" in /*) ;; *) p="/lib/modules/$p";; esac
+  [ -f "$p" ] || p="/lib/modules/${1##*/}"
+  $B insmod "$p" 2>/dev/null
+}
+loadm() { # $1 = module name
+  pat=$(echo "$1" | $B sed 's/[-_]/[-_]/g')
+  line=$($B grep -E "(^|/)$pat\.ko:" "$DEP" | $B head -1)
+  [ -z "$line" ] && { log "nomod $1"; return 1; }
+  self=${line%%:*}
+  for d in ${line#*:}; do
+    case "$d" in *.ko) loadm_dep "$d";; esac
+  done
+  loadp "$self"
+}
+loadm_dep() { # dependency path: recurse via its own line
+  case "$LOADED" in *" $1 "*) return;; esac
+  line=$($B grep -E "^$1:" "$DEP" | $B head -1)
+  for d in ${line#*:}; do case "$d" in *.ko) loadm_dep "$d";; esac; done
+  loadp "$1"
+}
+if [ -n "$DEP" ]; then
+  for m in pinctrl-msm pinctrl-kalama; do loadm $m; done
+fi
+log "loaded: $($B grep -cE 'pinctrl' /proc/modules) pinctrl modules"
+if /linux/keystate gpio-keys 114 3000; then
+  log "VOL_DOWN held -> linux requested (v1: ignored)"
+else
+  log "vol-down not held (rc=$?)"
+fi
+$B umount -l /dev 2>/dev/null
+$B umount -l /sys 2>/dev/null
+$B umount -l /proc 2>/dev/null
 exec /init "$@"

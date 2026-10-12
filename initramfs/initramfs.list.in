@@ -1,4 +1,4 @@
 dir /linux 0755 0 0
 file /linux/busybox @BB@ 0755 0 0
-file /linux/kexec @KEXEC@ 0755 0 0
+file /linux/keystate @KS@ 0755 0 0
 file /linux_hook @HOOK@ 0755 0 0

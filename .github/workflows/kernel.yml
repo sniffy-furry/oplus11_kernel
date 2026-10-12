@@ -142,7 +142,7 @@ jobs:
         working-directory: src
         run: |
           cpio -t < out/usr/initramfs_data.cpio 2>/dev/null | tee /tmp/l.txt
-          grep -qx linux_hook /tmp/l.txt && grep -qx linux/busybox /tmp/l.txt && grep -qx linux/kexec /tmp/l.txt
+          grep -qx linux_hook /tmp/l.txt && grep -qx linux/busybox /tmp/l.txt && grep -qx linux/keystate /tmp/l.txt
           grep -c 'rdinit=/linux_hook' out/.config || true
       - name: Compare with stock
         working-directory: src
