@@ -20,7 +20,7 @@ on:
         description: "config fragment to merge on top of the stock config (empty = pure stock; android.fragment = stub kernel with kexec, stock-ABI). e.g. config/distro3.fragment"
         default: "config/android.fragment"
       stage1:
-        description: "embed stage-1 initramfs (busybox+kexec+linux_hook) and rdinit=/linux_hook"
+        description: "embed stage-1 initramfs (busybox+kexec+linux_hook) and log_buf_len=16M rdinit=/linux_hook"
         type: boolean
         default: false
       stage1_rdinit:
@@ -115,7 +115,7 @@ jobs:
           if [ "${{ inputs.stage1 }}" = "true" ]; then
             scripts/config --file out/.config --set-str INITRAMFS_SOURCE "$HOME/stage1/initramfs.list"
             if [ "${{ inputs.stage1_rdinit }}" = "true" ]; then
-              scripts/config --file out/.config --set-str CMDLINE "stack_depot_disable=on kasan.stacktrace=off kvm-arm.mode=protected cgroup_disable=pressure rdinit=/linux_hook"
+              scripts/config --file out/.config --set-str CMDLINE "stack_depot_disable=on kasan.stacktrace=off kvm-arm.mode=protected cgroup_disable=pressure log_buf_len=16M rdinit=/linux_hook"
             fi
           fi
           # distro / no-ksu fragments are merged BEFORE olddefconfig
